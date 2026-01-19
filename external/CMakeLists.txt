@@ -25,8 +25,36 @@ if(NOT SLANG_ENABLE_EXTERNAL_COMPILER_WARNINGS)
     endif()
 endif()
 
+# Lua (required by slang-fiddle)
+# slang-fiddle directly includes Lua source files, so we need the source available
+if(NOT SLANG_OVERRIDE_LUA_PATH)
+    set(SLANG_LUA_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lua")
+else()
+    set(SLANG_LUA_SOURCE_DIR "${SLANG_OVERRIDE_LUA_PATH}")
+endif()
+
+if(NOT EXISTS "${SLANG_LUA_SOURCE_DIR}/onelua.c")
+    message(STATUS "Lua not found at ${SLANG_LUA_SOURCE_DIR} - downloading via FetchContent...")
+    include(FetchContent)
+    FetchContent_Declare(
+        lua
+        GIT_REPOSITORY https://github.com/lua/lua.git
+        GIT_TAG v5.4.7
+        SOURCE_DIR ${SLANG_LUA_SOURCE_DIR}
+    )
+    FetchContent_MakeAvailable(lua)
+    message(STATUS "Lua downloaded to ${SLANG_LUA_SOURCE_DIR}")
+endif()
+
 # Unordered dense
-if(NOT ${SLANG_USE_SYSTEM_UNORDERED_DENSE})
+if(${SLANG_USE_SYSTEM_UNORDERED_DENSE})
+    # Use system-installed unordered_dense via find_package
+    find_package(unordered_dense CONFIG REQUIRED)
+    # Create alias to match the target name used by submodule build
+    if(NOT TARGET unordered_dense::unordered_dense)
+        message(FATAL_ERROR "unordered_dense::unordered_dense target not found")
+    endif()
+else()
     if(NOT SLANG_OVERRIDE_UNORDERED_DENSE_PATH)
         add_subdirectory(unordered_dense EXCLUDE_FROM_ALL ${system})
     else()
@@ -112,8 +140,14 @@ if(NOT TARGET SPIRV-Headers)
         if(SLANG_OVERRIDE_SPIRV_HEADERS_PATH)
             message(
                 WARNING
-                "SLANG_OVERRIDE_SPIRV_HEADERS_PATH does nothing when SLANG_USE_SPIRV_HEADERS is set"
+                "SLANG_OVERRIDE_SPIRV_HEADERS_PATH does nothing when SLANG_USE_SYSTEM_SPIRV_HEADERS is set"
             )
+        endif()
+        # Use system-installed SPIRV-Headers via find_package
+        find_package(SPIRV-Headers CONFIG REQUIRED)
+        # Create alias to match the target name used by submodule build
+        if(NOT TARGET SPIRV-Headers)
+            add_library(SPIRV-Headers ALIAS SPIRV-Headers::SPIRV-Headers)
         endif()
     elseif(SLANG_OVERRIDE_SPIRV_HEADERS_PATH)
         add_subdirectory(
@@ -143,7 +177,18 @@ if(SLANG_ENABLE_SLANG_GLSLANG)
         )
     endif()
 
-    if(NOT ${SLANG_USE_SYSTEM_SPIRV_TOOLS})
+    if(${SLANG_USE_SYSTEM_SPIRV_TOOLS})
+        # Use system-installed SPIRV-Tools via find_package
+        find_package(SPIRV-Tools CONFIG REQUIRED)
+        find_package(SPIRV-Tools-opt CONFIG REQUIRED)
+        # Create aliases to match the target names used by submodule build
+        if(NOT TARGET SPIRV-Tools-static)
+            add_library(SPIRV-Tools-static ALIAS SPIRV-Tools::SPIRV-Tools)
+        endif()
+        if(NOT TARGET SPIRV-Tools-opt)
+            add_library(SPIRV-Tools-opt ALIAS SPIRV-Tools::SPIRV-Tools-opt)
+        endif()
+    else()
         # SPIRV-Tools
         set(SPIRV_TOOLS_BUILD_STATIC ON)
         set(SPIRV_WERROR OFF)
@@ -220,7 +265,20 @@ if(SLANG_ENABLE_SLANG_GLSLANG)
         endif()
     endif()
 
-    if(NOT ${SLANG_USE_SYSTEM_GLSLANG})
+    if(${SLANG_USE_SYSTEM_GLSLANG})
+        # Use system-installed glslang via find_package
+        find_package(glslang CONFIG REQUIRED)
+        # Create aliases to match the target names used by submodule build
+        if(NOT TARGET glslang)
+            add_library(glslang ALIAS glslang::glslang)
+        endif()
+        if(NOT TARGET SPIRV)
+            add_library(SPIRV ALIAS glslang::SPIRV)
+        endif()
+        if(NOT TARGET glslang-default-resource-limits)
+            add_library(glslang-default-resource-limits ALIAS glslang::glslang-default-resource-limits)
+        endif()
+    else()
         # glslang
         set(SKIP_GLSLANG_INSTALL ON)
         set(ENABLE_OPT ON)

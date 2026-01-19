@@ -2,6 +2,19 @@
 # Our wrapper for glslang
 #
 if(SLANG_ENABLE_SLANG_GLSLANG)
+    # Determine glslang include path
+    # When using submodule, we need to add parent directory so that
+    # #include "glslang/SPIRV/..." works (same as vcpkg installed version)
+    if(NOT SLANG_USE_SYSTEM_GLSLANG)
+        if(SLANG_OVERRIDE_GLSLANG_PATH)
+            set(SLANG_GLSLANG_INCLUDE_DIR "${SLANG_OVERRIDE_GLSLANG_PATH}")
+        else()
+            set(SLANG_GLSLANG_INCLUDE_DIR "${slang_SOURCE_DIR}/external")
+        endif()
+    else()
+        set(SLANG_GLSLANG_INCLUDE_DIR "")
+    endif()
+
     slang_add_target(
         .
         MODULE
@@ -10,6 +23,7 @@ if(SLANG_ENABLE_SLANG_GLSLANG)
         INCLUDE_DIRECTORIES_PRIVATE
             ${slang_SOURCE_DIR}/include
             ${CMAKE_CURRENT_BINARY_DIR}/../slang/slang-version-header
+            ${SLANG_GLSLANG_INCLUDE_DIR}
         INSTALL
         EXPORT_SET_NAME SlangTargets
         DEBUG_INFO_INSTALL_COMPONENT slang-glslang-debug-info
